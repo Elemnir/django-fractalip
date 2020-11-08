@@ -1,0 +1,298 @@
+{% extends "base.html" %}
+
+{% load fractalip_index %}
+
+{% block scripts %}
+<script>
+
+$( function() {
+  $(".net-sentinel-prev").each( function() {
+    if ($(this).text() != $(this).next(".net-sentinel-next").text()) {
+        $(this).after(
+          "<table class=\"table table-dark mb-0\"><thead><tr><th>" +
+            "<a href=# role=\"button\" data-toggle=\"modal\" data-target=\"#addblockmodal\" data-start=\"" + 
+            $(this).text() + "\">Add new block...</a>" +
+          "</th></tr></thead></table>"
+        )
+    }
+  })
+
+  {% if not request.user in network.admins.all %}
+  $("#netform .form-control").attr("readonly", true);
+  {% endif %}
+
+
+  $('#addblockmodal').on('show.bs.modal', function (event) {
+    var button = $(event.relatedTarget);
+    $(this).find('#addblock-start').val(button.data('start'));
+  });
+
+
+  $('#deleteblockmodal').on('show.bs.modal', function (event) {
+    var bid = $(event.relatedTarget).data('id');
+    var form = $('#deleteblockmodal form');
+    form.attr('action', form.attr('action').replace('0', bid));
+    
+    var current = $("#block_" + bid + " th");
+    $(this).find('#deleteblockmodal-name').text(current[0].innerText);
+  });
+
+
+  $('#editblockmodal').on('show.bs.modal', function (event) {
+    var bid = $(event.relatedTarget).data('id');
+    var form = $('#editblockmodal form');
+    form.attr('action', $(event.relatedTarget).data('action'));
+    
+    var current = $("#block_" + bid + " th");
+    $(this).find('#editblockmodal-start').text("Edit Block: " + current[0].innerText);
+    $(this).find('#editblockmodal-name').val(current[1].innerText);
+    $(this).find('#editblockmodal-notes').val(current[3].innerText);
+  });
+
+
+  $('#editaddressmodal').on('show.bs.modal', function (event) {
+    var aid = $(event.relatedTarget).data('id');
+    var form = $('#editaddressmodal form');
+    form.attr('action', $(event.relatedTarget).data('action'));
+    
+    var current = $("#address_" + aid + " td");
+    $(this).find('#editaddressmodal-address').val(current[0].innerText);
+    $(this).find('#editaddressmodal-name').val(current[1].innerText);
+    $(this).find('#editaddressmodal-notes').val(current[2].innerText);
+  });
+})
+</script>
+{% endblock %}
+
+
+{% block content %}
+<h1>{{ network }}</h1>
+<hr/>
+
+<div class="row">
+  <button class="btn btn-outline-info" type="button" data-toggle="collapse" data-target="#netform" aria-expanded="false" aria-controls="netform">
+    Toggle Network Details
+  </button>
+</div>
+
+<br>
+
+<form method="post" class="row collapse" id="netform">
+  {% csrf_token %}
+  {{ form.non_field_errors.as_p }}
+  
+  <div class="row">
+
+    <div class="col-lg-3 form-group {% if netform.name.errors %} has-error{%endif%}">
+      <label class="font-weight-bold" for="netform-name">Name:</label>
+      {{ netform.name }}
+      <strong class="help-block">{{ netform.name.errors.as_p }}</strong>
+    </div>
+
+    <div class="col-lg-3 form-group {% if netform.network.errors %} has-error{%endif%}">
+      <label class="font-weight-bold" for="netform-network">Network:</label>
+      {{ netform.network }}
+      <strong class="help-block">{{ netform.network.errors.as_p }}</strong>
+    </div>
+
+    <div class="col-lg-3 form-group {% if netform.netmask.errors %} has-error{%endif%}">
+      <label class="font-weight-bold" for="netform-netmask">Netmask:</label>
+      {{ netform.netmask }}
+      <strong class="help-block">{{ netform.netmask.errors.as_p }}</strong>
+    </div>
+
+    <div class="col-lg-3 form-group {% if netform.vlan.errors %} has-error{%endif%}">
+      <label class="font-weight-bold" for="netform-vlan">VLAN:</label>
+      {{ netform.vlan }}
+      <strong class="help-block">{{ netform.vlan.errors.as_p }}</strong>
+    </div>
+
+  </div>
+  
+  <div class="row form-group {% if netform.notes.errors %} has-error{% endif %}">
+    <label class="font-weight-bold" for="netform-notes">Description and Notes:</label><br>
+    {{ netform.notes }}
+    <strong class="help-block">{{ netform.notes.errors.as_p }}</strong>
+  </div>
+
+  {% if request.user in network.admins.all %}
+  <div class="row form-group {% if netform.admins.errors %} has-error{% endif %}">
+    <label class="font-weight-bold" for="netform-admins">Admin Users:</label>
+    {{ netform.admins }}
+    <strong class="help-block">{{ netform.admins.errors.as_p }}</strong>
+  </div>
+  <button class="btn btn-primary form-control" type="submit">Edit Network Details</button>
+  {% endif %}
+</form>
+
+<br><br>
+
+<div class="net-sentinel-prev" style="display: none;">{{ network.network }}</div>
+{% for ipblk in blocks %}
+<div class="net-sentinel-next" style="display: none;">{{ ipblk.start }}</div>
+<table class="table mb-0">
+  <thead class="thead-light">
+    <tr class="d-flex" id="block_{{ ipblk.pk }}">
+      <th class="col-md-2">{{ ipblk.start }} ({{ ipblk.length }})</th>
+      <th class="col-md-2">{{ ipblk.name }}</th>
+      <th class="col-md-2">{{ ipblk.owner.username }}</th>
+      <th class="col-md-3">{{ ipblk.notes }}</th>
+      <th class="col-md-3 text-sm-right">
+        <button class="btn btn-primary" data-toggle="collapse" data-target="#block_{{ ipblk.pk }}_ips">Expand</button>
+        <button class="btn btn-secondary" data-toggle="modal" data-target="#editblockmodal" data-id="{{ ipblk.pk }}" data-action="{% url "fractalip:block-update" ipblk.pk %}">Edit</button>
+        <button class="btn btn-danger" data-toggle="modal" data-target="#deleteblockmodal" data-id="{{ ipblk.pk }}">Delete</button>
+      </th>
+    </tr>
+  </thead>
+  <tbody class="collapse" id="block_{{ ipblk.pk }}_ips">
+  {% for addr in iplist|index:forloop.counter0 %}
+    <tr class="d-flex" id="address_{{ addr.pk }}">
+      <td class="col-md-2">{{ addr.address }}</td>
+      <td class="col-md-2">{{ addr.name }}</td>
+      <td class="col-md-6"colspan="2">{{ addr.notes }}</td>
+      <td class="col-md-2 text-sm-right">
+        <button class="btn btn-primary" data-toggle="modal" data-target="#editaddressmodal" data-id="{{ addr.pk }}" data-action="{% url "fractalip:address-update" addr.pk %}">Edit</button>
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+<div class="net-sentinel-prev" style="display: none;">{{ ipblk.sentinel }}</div>
+{% endfor %}
+<div class="net-sentinel-next" style="display: none;">{{ network.sentinel }}</div>
+
+<br>
+<a class="btn btn-primary form-control" href="{% url "fractalip:network-list" %}">Return to List</a>
+
+
+<div class="modal fade" id="addblockmodal" tabindex="-1" aria-labelledby="addblockmodal" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Add New Network Block</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <form method="post" id="addblockform" action="{% url "fractalip:block-create" %}">
+          {% csrf_token %}
+          <input type="hidden" name="network" value="{{ network.pk }}">
+          <div class="form-group">
+            <label class="" for="addblock-name">Block Name (Optional):</label>
+            {{ addblockform.name }}
+          </div>
+          <div class="form-group">
+            <label class="" for="addblock-start">Block Start Address:</label>
+            {{ addblockform.start }}
+          </div>
+          <div class="form-group">
+            <label class="" for="addblock-length">Block Size:</label>
+            {{ addblockform.length }}
+          </div>
+          <div class="form-group">
+            <label class="" for="addblock-notes">Description (Optional):</label>
+            {{ addblockform.notes }}
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+        <button class="btn btn-primary" type="submit" form="addblockform">Create Block</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<div class="modal fade" id="deleteblockmodal" tabindex="-1" aria-labelledby="deleteblockmodal" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Really Delete Block?</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <form method="post" id="deleteblockform" action="{% url "fractalip:block-delete" 0 %}">
+          {% csrf_token %}
+          <p id="deleteblockmodal-name"></p>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+        <button class="btn btn-primary" type="submit" form="deleteblockform" >Delete Block</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<div class="modal fade" id="editblockmodal" tabindex="-1" aria-labelledby="editblockmodal" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="editblockmodal-start">Edit Network Block Details</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <form method="post" id="editblockform" action="">
+          {% csrf_token %}
+          <div class="form-group">
+            <label class="" for="editblockmodal-name">Block Name (Optional):</label>
+            <input class="form-control" type="text" name="name" id="editblockmodal-name">
+          </div>
+          <div class="form-group">
+            <label class="" for="editblockmodal-notes">Description (Optional):</label>
+            <textarea class="form-control" name="notes" id="editblockmodal-notes"></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+        <button class="btn btn-primary" type="submit" form="editblockform" >Update Block</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<div class="modal fade" id="editaddressmodal" tabindex="-1" aria-labelledby="editaddressmodal" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Edit Address Details</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <form method="post" id="editaddressform" action="">
+          {% csrf_token %}
+          <div class="form-group">
+            <label class="" for="editaddressmodal-address">Address:</label>
+            <input class="form-control" type="text" name="address" id="editaddressmodal-address" readonly=True>
+          </div>
+          <div class="form-group">
+            <label class="" for="editaddressmodal-name">Host (Optional):</label>
+            <input class="form-control" type="text" name="name" id="editaddressmodal-name">
+          </div>
+          <div class="form-group">
+            <label class="" for="editaddressmodal-notes">Description (Optional):</label>
+            <textarea class="form-control" name="notes" id="editaddressmodal-notes"></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+        <button class="btn btn-primary" type="submit" form="editaddressform">Update Address</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+{% endblock %}

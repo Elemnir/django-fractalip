@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="row">
+  <div class="col-sm-2">
+    <h1>Networks</h1>
+  </div>
+</div>
+
+<div class="row">
+  <form class="form-inline" method="get">
+    <div class="form-group col-lg-2">
+      <input type="text" class="form-control" id="id_name" name="name" placeholder="Network Name">
+    </div>
+    <div class="form-group col-lg-2">
+      <input type="text" class="form-control" id="id_network" name="network" placeholder="Network IP">
+    </div>
+    <div class="form-group col-lg-2">
+      <input type="text" class="form-control" id="id_netmask" name="netmask" placeholder="Netmask">
+    </div>
+    <div class="form-group col-lg-2">
+      <input type="number" class="form-control" id="id_vlan" name="vlan" placeholder="VLAN">
+    </div>
+    <div class="form-group col-lg-2">
+      <input type="text" class="form-control" id="id_notes" name="notes" placeholder="Description Contains">
+    </div>
+    <div class="col-lg-2">
+      <button type="submit" class="btn btn-primary">Filter</button>
+      <a class="btn btn-default" href="{% url "fractalip:network-list" %}">Reset</a>
+    </div>
+  </form>
+</div>
+
+<br>
+<button class="btn btn-primary form-control" data-toggle="modal" data-target="#addnetworkmodal">Add New Network...</button>
+<br>
+
+<table class="table">
+  <thead>
+    <tr class="d-flex">
+      <th class="col-md-1"></th>
+      <th class="col-md-5">Network</th>
+      <th class="col-md-2">VLAN</th>
+      <th class="col-md-4">Created</th>
+    </tr>
+  </thead>
+  <tbody>
+  {% for net in networks %}
+    <tr class="d-flex">
+      <td class="col-md-1">
+        <button class="btn btn-link" data-toggle="collapse" data-target="#net{{net.pk}}">
+          <svg width="1em" height="1em" viewBox="0 0 16 16" class="bi bi-three-dots" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+            <path fill-rule="evenodd" d="M3 9.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"/>
+          </svg>
+        </button>
+      </td>
+      <td class="col-md-5">  
+        <a href="{% url "fractalip:network-detail" net.pk %}">{{ net }}</a>
+      </td>
+      <td class="col-md-2">
+        {{ net.vlan }}
+      </td>
+      <td class="col-md-4">
+        {{ net.created }}
+      </td>
+    </tr>
+    <tr class="table-active collapse" id="net{{net.pk}}">
+      <td colspan=4><p>{{ net.notes }}</p></td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+
+{% if is_paginated %}
+<ul class="pagination">
+  {% if page_obj.has_previous %}
+    <li><a href="?page={{ page_obj.previous_page_number }}">&laquo;</a></li>
+  {% else %}
+    <li class="disabled"><span>&laquo;</span></li>
+  {% endif %}       
+  {% for i in paginator.page_range %}
+    {% if page_obj.number == i %}
+      <li class="active"><span>{{ i }} <span class="sr-only">(current)</span></span></li>
+    {% else %}                            
+      <li><a href="?page={{ i }}">{{ i }}</a></li>
+    {% endif %}                                         
+  {% endfor %}                                                
+  {% if page_obj.has_next %}
+    <li><a href="?page={{ page_obj.next_page_number }}">&raquo;</a></li>
+  {% else %}                                                                
+    <li class="disabled"><span>&raquo;</span></li>                              
+  {% endif %}                                                                         
+</ul>
+{% endif %}
+
+<div class="modal fade" id="addnetworkmodal" tabindex="-1" aria-labelledby="addnetworkmodal" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Add New Network</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <form method="post" id="addnetworkform" action="{% url "fractalip:network-create" %}">
+          {% csrf_token %}
+          <div class="form-group">
+            <label class="col-form-label">Name (Optional):</label>
+            {{ addnetworkform.name }}
+          </div>
+          <div class="form-group">
+            <label class="col-form-label">Network:</label>
+            {{ addnetworkform.network }}
+          </div>
+          <div class="form-group">
+            <label class="col-form-label">Netmask:</label>
+            {{ addnetworkform.netmask }}
+          </div>
+          <div class="form-group">
+            <label class="col-form-label">Description (Optional):</label>
+            {{ addnetworkform.notes }}
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+        <button class="btn btn-primary" type="submit" form="addnetworkform">Create Network</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
+{% endblock %}
+
