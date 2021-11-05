@@ -1,2 +1,4 @@
 include *.rst LICENSE
 recursive-include tests *.py
+recursive-include src/fractalip/templates *
+recursive-include src/fractalip/templatetags *
