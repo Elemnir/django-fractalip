@@ -1,11 +1,14 @@
+import datetime
 import ipaddress
+import socket
+import subprocess
 
 from django.contrib.auth.models import User
 from django.core.exceptions     import ValidationError
 from django.core.validators     import MaxValueValidator
 from django.db                  import models
 from django.urls                import reverse
-
+from django.utils.timezone      import now
 
 class Network(models.Model):
     created = models.DateTimeField(auto_now_add=True)
@@ -84,17 +87,42 @@ class AddressBlock(models.Model):
             return None
         return sentinel
 
+    def lookup_names(self):
+        """Attempts to resolve the Addresses within the block to a hostname"""
+        for addr in self.address_set.all():
+            addr.set_hostname_from_lookup()
+
 
 class Address(models.Model): 
-    created = models.DateTimeField(auto_now_add=True)
-    active  = models.BooleanField(blank=True, default=True)
-    name    = models.CharField(max_length=32, blank=True)
-    ipblock = models.ForeignKey(AddressBlock, on_delete=models.CASCADE)
-    address = models.GenericIPAddressField()
-    notes   = models.TextField(blank=True)
+    created     = models.DateTimeField(auto_now_add=True)
+    active      = models.BooleanField(blank=True, default=True)
+    name        = models.CharField(max_length=32, blank=True)
+    ipblock     = models.ForeignKey(AddressBlock, on_delete=models.CASCADE)
+    address     = models.GenericIPAddressField()
+    notes       = models.TextField(blank=True)
+    last_ping   = models.DateTimeField(blank=True, null=True)
 
     def __str__(self):
         return self.address + ' - {0}'.format(self.name) if self.name else ''
 
     def get_absolute_url(self):
         return reverse('fractalip:network-detail', args=[self.ipblock.network.pk])
+
+    def set_hostname_from_lookup(self):
+        try:
+            hostname, _, _ = socket.gethostbyaddr(self.address)
+            self.name = hostname
+        except:
+            self.name = ''
+        self.save()
+
+    def ping_check(self):
+        cmd = ["/usr/bin/ping", "-c", "1", self.address]
+        if subprocess.call(cmd) == 0:
+            self.last_ping = now()
+            self.save()
+            return True
+        return False
+
+    def pinged_recently(self):
+        return (now() - self.last_ping) < datetime.timedelta(hours=1) if self.last_ping else False

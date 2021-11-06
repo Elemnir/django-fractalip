@@ -21,6 +21,7 @@ $( function() {
   $("#netform .form-control").attr("readonly", true);
   {% endif %}
 
+  $('[data-toggle="tooltip"]').tooltip();
 
   $('#addblockmodal').on('show.bs.modal', function (event) {
     var button = $(event.relatedTarget);
@@ -47,6 +48,9 @@ $( function() {
     $(this).find('#editblockmodal-start').text("Edit Block: " + current[0].innerText);
     $(this).find('#editblockmodal-name').val(current[1].innerText);
     $(this).find('#editblockmodal-notes').val(current[3].innerText);
+    
+    var btn = $(this).find('#editblockmodal-scan');
+    btn.attr('href', btn.attr('href').replace('0', bid));
   });
 
 
@@ -59,6 +63,23 @@ $( function() {
     $(this).find('#editaddressmodal-address').val(current[0].innerText);
     $(this).find('#editaddressmodal-name').val(current[1].innerText);
     $(this).find('#editaddressmodal-notes').val(current[2].innerText);
+  });
+
+  $('.pingtrigger').click(function(e) {
+    e.preventDefault();
+    $.ajax({
+        context: $(this),
+        url: $(this).attr('href'),
+        success: function(result) {
+            $(this).text('\u2705');
+            $(this).attr('title', "Now");
+            $(this).tooltip();
+        },
+        error: function(result) {
+            $(this).removeClass('btn-light');
+            $(this).addClass('btn-danger');
+        }
+    });
   });
 })
 </script>
@@ -138,7 +159,7 @@ $( function() {
       <th class="col-md-2">{{ ipblk.owner.username }}</th>
       <th class="col-md-3">{{ ipblk.notes }}</th>
       <th class="col-md-3 text-sm-right">
-        <button class="btn btn-primary" data-toggle="collapse" data-target="#block_{{ ipblk.pk }}_ips">Expand</button>
+        <button class="btn btn-primary" data-toggle="collapse" data-target="#block_{{ ipblk.pk }}_ips">Toggle</button>
         <button class="btn btn-secondary" data-toggle="modal" data-target="#editblockmodal" data-id="{{ ipblk.pk }}" data-action="{% url "fractalip:block-update" ipblk.pk %}">Edit</button>
         <button class="btn btn-danger" data-toggle="modal" data-target="#deleteblockmodal" data-id="{{ ipblk.pk }}">Delete</button>
       </th>
@@ -148,9 +169,14 @@ $( function() {
   {% for addr in iplist|index:forloop.counter0 %}
     <tr class="d-flex" id="address_{{ addr.pk }}">
       <td class="col-md-2">{{ addr.address }}</td>
-      <td class="col-md-2">{{ addr.name }}</td>
-      <td class="col-md-6"colspan="2">{{ addr.notes }}</td>
+      <td class="col-md-4">{{ addr.name }}</td>
+      <td class="col-md-4"colspan="2">{{ addr.notes }}</td>
       <td class="col-md-2 text-sm-right">
+        {% if addr.pinged_recently %}
+          <button class="btn btn-light" data-toggle="tooltip" data-placement="top" title="{{ addr.last_ping }}">&#x2705;</button>
+        {% else %}
+          <a class="btn btn-light pingtrigger" href="{% url "fractalip:address-ping" addr.pk %}" data-toggle="tooltip" data-placement="top" title="{{ addr.last_ping|default:"Never" }}">&#x274c;</a>
+        {% endif %}
         <button class="btn btn-primary" data-toggle="modal" data-target="#editaddressmodal" data-id="{{ addr.pk }}" data-action="{% url "fractalip:address-update" addr.pk %}">Edit</button>
       </td>
     </tr>
@@ -253,6 +279,7 @@ $( function() {
       </div>
       <div class="modal-footer">
         <button class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+        <a id="editblockmodal-scan" class="btn btn-danger" href="{% url "fractalip:block-lookup" 0 %}">Populate From DNS</a>
         <button class="btn btn-primary" type="submit" form="editblockform" >Update Block</button>
       </div>
     </div>

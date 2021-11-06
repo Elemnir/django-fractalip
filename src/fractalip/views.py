@@ -1,6 +1,7 @@
 from django.conf                    import settings
 from django.contrib.auth.mixins     import LoginRequiredMixin, UserPassesTestMixin
-from django.http                    import (HttpResponseBadRequest,
+from django.http                    import (HttpResponse,
+                                            HttpResponseBadRequest,
                                             HttpResponseForbidden)
 from django.shortcuts               import get_object_or_404, redirect, render
 from django.urls                    import reverse
@@ -88,6 +89,17 @@ class AddressBlockDeleteView(LoginRequiredMixin, View):
         return redirect(reverse('fractalip:network-detail', args=[block.network.pk]))
 
 
+class AddressBlockLookupView(LoginRequiredMixin, UserPassesTestMixin, View):
+    def test_func(self):
+        return self.request.user
+
+    def get(self, request, pk):
+        block = get_object_or_404(AddressBlock, pk=pk)
+        for addr in block.address_set.all():
+            addr.set_hostname_from_lookup()
+        return redirect(reverse('fractalip:network-detail', args=[block.network.pk]))
+
+
 class AddressBlockUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
     model = AddressBlock
     modelform = AddressBlockForm
@@ -122,3 +134,12 @@ class AddressUpdateView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
 
     def form_valid(self, form):
         return super().form_valid(form)
+
+
+class AddressPingCheckView(LoginRequiredMixin, View):
+    def get(self, request, pk):
+        addr = get_object_or_404(Address, pk=pk)
+        if addr.ping_check():
+            return HttpResponse()
+        else:
+            return HttpResponseBadRequest()
